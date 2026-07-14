@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 628" width="1200" height="628" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+  <rect width="1200" height="628" fill="#0d1117"/>
+
+  <text x="60" y="72" fill="#e6edf3" font-size="30" font-weight="700">Two teams. Different problems. Same architecture.</text>
+  <text x="60" y="106" fill="#7d8590" font-size="17">Karpathy's LLM Wiki and Google's Open Knowledge Format converged on the same shape.</text>
+
+  <!-- LEFT: Karpathy -->
+  <rect x="60" y="146" width="500" height="286" rx="10" fill="#161b22" stroke="#30363d"/>
+  <text x="86" y="184" fill="#d2a8ff" font-size="13" font-weight="700" letter-spacing="1.2">KARPATHY, LLM WIKI</text>
+  <text x="86" y="216" fill="#e6edf3" font-size="16">You curate the sources.</text>
+  <text x="86" y="242" fill="#e6edf3" font-size="16">The agent compiles them into</text>
+  <text x="86" y="268" fill="#e6edf3" font-size="16">durable, interlinked markdown.</text>
+  <text x="86" y="308" fill="#7d8590" font-size="14.5">Extract entities into standalone pages</text>
+  <text x="86" y="334" fill="#7d8590" font-size="14.5">Weave cross references between them</text>
+  <text x="86" y="360" fill="#7d8590" font-size="14.5">Flag contradictions</text>
+  <text x="86" y="386" fill="#7d8590" font-size="14.5">Lint and self heal</text>
+  <text x="86" y="414" fill="#484f58" font-size="13.5" font-style="italic">Knowledge compounds instead of evaporating.</text>
+
+  <!-- RIGHT: OKF -->
+  <rect x="640" y="146" width="500" height="286" rx="10" fill="#161b22" stroke="#30363d"/>
+  <text x="666" y="184" fill="#7ee787" font-size="13" font-weight="700" letter-spacing="1.2">GOOGLE, OPEN KNOWLEDGE FORMAT</text>
+  <text x="666" y="216" fill="#e6edf3" font-size="16">A directory of markdown files</text>
+  <text x="666" y="242" fill="#e6edf3" font-size="16">with YAML frontmatter.</text>
+  <text x="666" y="268" fill="#e6edf3" font-size="16">Produce it without an SDK.</text>
+  <text x="666" y="308" fill="#7d8590" font-size="14.5">One file per concept</text>
+  <text x="666" y="334" fill="#7d8590" font-size="14.5">The file path is the concept's identity</text>
+  <text x="666" y="360" fill="#7d8590" font-size="14.5">Markdown links make it a graph</text>
+  <text x="666" y="386" fill="#7d8590" font-size="14.5">Reserved index.md for disclosure</text>
+  <text x="666" y="414" fill="#484f58" font-size="13.5" font-style="italic">Consume it without an integration.</text>
+
+  <!-- equals -->
+  <circle cx="600" cy="289" r="30" fill="#0d1117" stroke="#30363d" stroke-width="2"/>
+  <line x1="586" y1="282" x2="614" y2="282" stroke="#7d8590" stroke-width="3" stroke-linecap="round"/>
+  <line x1="586" y1="296" x2="614" y2="296" stroke="#7d8590" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- shared substrate -->
+  <rect x="60" y="458" width="1080" height="60" rx="9" fill="#1c2432" stroke="#3d444d"/>
+  <text x="86" y="495" fill="#e6edf3" font-size="17" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">markdown + YAML frontmatter &#183; one file per concept &#183; the directory is the graph</text>
+
+  <!-- the catch -->
+  <rect x="60" y="536" width="1080" height="58" rx="9" fill="#2b1416" stroke="#f8514933"/>
+  <text x="86" y="562" fill="#ff7b72" font-size="15.5" font-weight="700">They differ on exactly one detail, and it is the one that silently deletes your graph.</text>
+  <text x="86" y="583" fill="#7d8590" font-size="14">Obsidian writes [[wikilinks]]. OKF permits standard markdown links, and only those.</text>
+</svg>

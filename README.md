@@ -6,7 +6,7 @@
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](pyproject.toml)
 
-![The silent failure OKF cannot warn you about](docs/silent-failure.svg)
+![Karpathy's LLM Wiki and Google's OKF converged on the same architecture](docs/convergence.svg)
 
 OKF is a format for representing knowledge as a directory of markdown files with YAML
 frontmatter: one file per concept, the file path is the concept's identity, and ordinary
@@ -57,6 +57,8 @@ frontmatter, one file per concept, directory as graph. They differ on exactly on
 Wikilink syntax appears nowhere in the spec. So point a conforming consumer at a
 wikilink-based vault and it will ingest every file, report **no error**, and see a knowledge
 graph with **zero edges**. Your links become literal text. Nothing tells you.
+
+![A conforming consumer reports CONFORMANT on a bundle whose every relationship is invisible](docs/silent-failure.svg)
 
 `okf validate` will not catch that: the bundle *is* conformant. `okf lint` will.
 
