@@ -17,6 +17,12 @@ The OKF project ships a **reference agent** that *produces* bundles. `okf-tools`
 everything after that: checking a bundle is conformant, catching the failures conformance
 does not catch, and converting knowledge you already have into a bundle.
 
+The reference agent does have a `Document.validate()`, but it runs at **write** time and
+enforces four required frontmatter keys (`type`, `title`, `description`, `timestamp`), while
+[SPEC.md §9](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
+requires exactly one: a non-empty `type`. The producer is stricter than the format, and
+neither gives you a way to point at a bundle you already have and ask whether it conforms.
+
 ```bash
 pip install git+https://github.com/astoreyai/okf-tools
 ```
