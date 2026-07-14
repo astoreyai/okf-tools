@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 486" width="900" height="486" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">
+  <rect width="900" height="486" rx="10" fill="#0d1117"/>
+  <rect x="0" y="0" width="900" height="36" rx="10" fill="#161b22"/>
+  <rect x="0" y="26" width="900" height="10" fill="#161b22"/>
+  <circle cx="24" cy="18" r="6" fill="#ff5f57"/>
+  <circle cx="44" cy="18" r="6" fill="#febc2e"/>
+  <circle cx="64" cy="18" r="6" fill="#28c840"/>
+  <text x="410" y="23" fill="#7d8590" font-size="12" font-family="ui-sans-serif,Helvetica,Arial,sans-serif">okf-tools</text>
+
+  <!-- validate -->
+  <text x="26" y="70" font-size="13.5"><tspan fill="#3fb950">$</tspan><tspan fill="#e6edf3" xml:space="preserve"> okf validate ./my-vault</tspan></text>
+  <text x="26" y="96"  fill="#7d8590" font-size="13.5">OKF v0.1 conformance: ./my-vault</text>
+  <text x="26" y="118" fill="#7d8590" font-size="13.5" xml:space="preserve">  concept documents : 215</text>
+  <text x="26" y="140" fill="#7d8590" font-size="13.5" xml:space="preserve">  reserved files    : 9</text>
+  <text x="26" y="168" font-size="13.5" font-weight="700" xml:space="preserve"><tspan fill="#3fb950">  CONFORMANT</tspan><tspan fill="#7d8590" font-weight="400"> (section 9: all three criteria pass)</tspan></text>
+
+  <text x="26" y="200" fill="#484f58" font-size="12.5" font-family="ui-sans-serif,Helvetica,Arial,sans-serif">Looks fine. It is not fine.</text>
+
+  <!-- lint -->
+  <text x="26" y="238" font-size="13.5"><tspan fill="#3fb950">$</tspan><tspan fill="#e6edf3" xml:space="preserve"> okf lint ./my-vault</tspan></text>
+
+  <text x="26" y="266" font-size="13.5"><tspan fill="#ff7b72" font-weight="700">ERROR  </tspan><tspan fill="#e6edf3" xml:space="preserve"> Topics/vector-search.md  </tspan><tspan fill="#d2a8ff">[wikilink]</tspan></text>
+  <text x="26" y="286" fill="#7d8590" font-size="12.5" xml:space="preserve">        6 Obsidian [[wikilink]](s) point at pages that exist but are</text>
+  <text x="26" y="304" fill="#7d8590" font-size="12.5" xml:space="preserve">        invisible to OKF consumers; these relationships are silently</text>
+  <text x="26" y="322" fill="#7d8590" font-size="12.5" xml:space="preserve">        dropped. Run `okf migrate --apply`.</text>
+
+  <text x="26" y="350" font-size="13.5"><tspan fill="#ff7b72" font-weight="700">ERROR  </tspan><tspan fill="#e6edf3" xml:space="preserve"> Datasets/orders-db.md:110  </tspan><tspan fill="#d2a8ff">[broken-link]</tspan></text>
+  <text x="26" y="370" fill="#7d8590" font-size="12.5" xml:space="preserve">        link target does not exist: docs/VALIDATION.md</text>
+
+  <text x="26" y="398" fill="#484f58" font-size="13.5" xml:space="preserve">...</text>
+
+  <text x="26" y="426" font-size="14" font-weight="700"><tspan fill="#ff7b72">141 error(s)</tspan><tspan fill="#7d8590" font-weight="400">, 0 warning(s), 399 info</tspan></text>
+
+  <rect x="26" y="446" width="848" height="26" rx="5" fill="#161b22"/>
+  <text x="38" y="464" fill="#7d8590" font-size="12.5" font-family="ui-sans-serif,Helvetica,Arial,sans-serif">Same bundle. Conformant, and every relationship in it is invisible.</text>
+</svg>

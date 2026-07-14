@@ -2,6 +2,12 @@
 
 **Validate, lint, migrate, and index [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf) bundles.**
 
+[![ci](https://github.com/astoreyai/okf-tools/actions/workflows/ci.yml/badge.svg)](https://github.com/astoreyai/okf-tools/actions/workflows/ci.yml)
+[![license](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](pyproject.toml)
+
+![The silent failure OKF cannot warn you about](docs/silent-failure.svg)
+
 OKF is a format for representing knowledge as a directory of markdown files with YAML
 frontmatter: one file per concept, the file path is the concept's identity, and ordinary
 markdown links turn the directory into a graph. It is designed so that anyone can produce it
@@ -12,7 +18,7 @@ everything after that: checking a bundle is conformant, catching the failures co
 does not catch, and converting knowledge you already have into a bundle.
 
 ```bash
-pip install okf-tools
+pip install git+https://github.com/astoreyai/okf-tools
 ```
 
 ```bash
@@ -47,6 +53,8 @@ wikilink-based vault and it will ingest every file, report **no error**, and see
 graph with **zero edges**. Your links become literal text. Nothing tells you.
 
 `okf validate` will not catch that: the bundle *is* conformant. `okf lint` will.
+
+![okf validate says CONFORMANT; okf lint finds 141 errors in the same bundle](docs/demo.svg)
 
 Every rule in the linter is a failure that is invisible to conformance, invisible to a
 conforming consumer, and therefore invisible to you.
