@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+title: "okf-tools: validate, lint, migrate, and index Open Knowledge Format bundles"
+message: "If you use this software, please cite it."
+type: software
+authors:
+  - family-names: Storey
+    given-names: Aaron W.
+repository-code: "https://github.com/astoreyai/okf-tools"
+license: Apache-2.0
+version: 0.1.0

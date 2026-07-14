@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "okf-tools"
+version = "0.1.0"
+description = "Validate, lint, migrate, and index Open Knowledge Format (OKF) bundles."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Aaron W. Storey" }]
+keywords = ["okf", "open-knowledge-format", "knowledge-graph", "obsidian", "agents", "rag"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Topic :: Software Development :: Documentation",
+]
+dependencies = ["PyYAML>=5.1"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "ruff>=0.4"]
+
+[project.scripts]
+okf = "okf_tools.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/astoreyai/okf-tools"
+Specification = "https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
