@@ -24,20 +24,46 @@ Two rules this migrator will not break
    carries, and a field with no honest source is simply omitted. A conforming consumer must
    not reject a document for a missing optional field, so omission is always safe and
    fabrication never is.
+
+The `generated` question
+------------------------
+v0.2 §13.1 supersedes `timestamp` with `generated: { by, at }`, and §5.2 makes `by` REQUIRED
+within it. A vault carries a modification date but no actor: the file does not record who or
+what wrote it, and this tool did not. Inventing one would break rule 2 above, so the actor is
+something only you can supply.
+
+    okf migrate ./vault --actor human:aaron --apply
+
+With `--actor`, a full `generated` is written. Without it, the derived date is written as the
+legacy `timestamp`, which §13.1 explicitly permits a v0.2 consumer to fall back to. The
+default is therefore always spec-legal and never fabricates an author.
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from datetime import date, datetime
 from pathlib import Path
+from typing import Any
+from urllib.parse import quote, unquote
 
 import yaml
+from markdown_it import MarkdownIt
 
-from .parser import WIKILINK, iter_documents, split_frontmatter
+from .parser import (
+    BundleSnapshot,
+    _index_targets,
+    _resolve_target,
+    is_conventional_actor,
+    iter_wikilinks,
+    load_bundle,
+    split_frontmatter,
+)
+from .safety import DEFAULT_LIMITS, BundleError, Limits, apply_changes
 
-_FENCE = re.compile(r"```.*?```", re.S)
-_CODEISH = re.compile(r'\["|\]\(|-->|=>|\{\{|::|^\w+\[|;\s*$')
+_MARKDOWN = MarkdownIt("commonmark")
+_MARKDOWN_PUNCTUATION = re.compile(r"([\\`*{}\[\]<>()#+.!_|~\-])")
 
 
 @dataclass
@@ -46,109 +72,203 @@ class MigrationResult:
     links_converted: int = 0
     fields_added: dict[str, int] = field(default_factory=dict)
     unresolved: list[tuple[str, str]] = field(default_factory=list)
+    changes: dict[str, str] = field(default_factory=dict)
+    skipped: dict[str, str] = field(default_factory=dict)
+    ambiguous: dict[str, list[str]] = field(default_factory=dict)
+    applied: list[str] = field(default_factory=list)
 
     @property
     def wanted_pages(self) -> list[str]:
-        seen: list[str] = []
-        for _, target in self.unresolved:
-            if target not in seen:
-                seen.append(target)
-        return seen
+        return list(dict.fromkeys(target for _, target in self.unresolved))
 
 
-def _index_targets(bundle_root: Path) -> dict[str, Path]:
-    """Resolve a wikilink target by slug, then by title, then by alias. Case-insensitive."""
-    idx: dict[str, Path] = {}
-
-    def put(key: str, path: Path) -> None:
-        if key and key.strip():
-            idx.setdefault(key.strip().lower(), path)
-
-    docs = [d for d in iter_documents(bundle_root) if not d.is_reserved]
-    for d in docs:  # slugs first: a filename is unique, a title is not
-        put(d.path.stem, d.path)
-    for d in docs:
-        if not d.frontmatter:
+def _metadata_error(fm: dict[str, Any]) -> str | None:
+    if any(not isinstance(key, str) for key in fm):
+        return "frontmatter keys must be strings"
+    if not isinstance(fm.get("type"), str) or not fm["type"].strip():
+        return "missing, empty, or non-string `type`; migration never guesses a type"
+    for key in ("title", "description"):
+        if key in fm and not isinstance(fm[key], str):
+            return f"`{key}` must be a string"
+    if "aliases" in fm and (
+        not isinstance(fm["aliases"], list)
+        or any(not isinstance(alias, str) or not alias.strip() for alias in fm["aliases"])
+    ):
+        return "`aliases` must be a list of non-empty strings"
+    for key in ("generated", "verified"):
+        if key not in fm:
             continue
-        put(str(d.frontmatter.get("title") or ""), d.path)
-        for alias in d.frontmatter.get("aliases") or []:
-            put(str(alias), d.path)
-    return idx
+        value = fm[key]
+        events = value if key == "verified" and isinstance(value, list) else [value]
+        for event in events:
+            if not isinstance(event, dict):
+                return f"`{key}` must contain actor-event mappings"
+            if not isinstance(event.get("by"), str) or not event["by"].strip():
+                return f"`{key}.by` must be a non-empty string actor identity"
+    if "sources" in fm:
+        value = fm["sources"]
+        sources = [value] if isinstance(value, dict) else value
+        if not isinstance(sources, list) or any(not isinstance(item, dict) for item in sources):
+            return "`sources` must be a mapping or a list of mappings"
+        for source in sources:
+            if "author" in source and (
+                not isinstance(source["author"], str) or not source["author"].strip()
+            ):
+                return "`sources[].author` must be a non-empty string actor identity"
+    return None
+
+
+def _escape_label(value: str) -> str:
+    return _MARKDOWN_PUNCTUATION.sub(r"\\\1", " ".join(value.splitlines()))
 
 
 def _first_sentence(body: str) -> str:
-    """Lift a one-sentence description from prose the document already has.
-
-    Fenced blocks are stripped first. Without that, a vault containing a mermaid diagram
-    yields descriptions like `projectfoo123["Foo"]`, which is worse than no description.
-    """
-    body = _FENCE.sub("", body)
-    for line in body.splitlines():
-        s = line.strip()
-        if not s or s.startswith(("#", "|", "-", "*", ">", "```", "---", "→")):
+    """Lift existing prose, never fenced/indented code or a heading, as a description."""
+    tokens = _MARKDOWN.parse(body)
+    for index, token in enumerate(tokens):
+        if token.type != "paragraph_open" or token.level != 0:
             continue
-        if _CODEISH.search(s):
+        inline = tokens[index + 1]
+        if inline.type != "inline":
             continue
-        s = WIKILINK.sub(lambda m: m.group("alias") or m.group("target"), s)
-        s = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", s)
-        s = re.sub(r"[*_`]", "", s).strip()
-        if len(s) < 15:
+        parts = []
+        for child in inline.children or []:
+            if child.type in ("text", "code_inline"):
+                parts.append(child.content)
+            elif child.type in ("softbreak", "hardbreak"):
+                parts.append(" ")
+        prose = "".join(parts).strip()
+        if len(prose) < 15:
             continue
-        m = re.match(r"(.{15,300}?[.!?])(\s|$)", s)
-        return (m.group(1) if m else s[:300]).strip()
+        match = re.match(r"(.{15,300}?[.!?])(?:\s|$)", prose)
+        return (match.group(1) if match else prose[:300]).strip()
     return ""
 
 
-def migrate(bundle_root: Path, apply: bool = False) -> MigrationResult:
-    bundle_root = Path(bundle_root).resolve()
+def migrate(
+    bundle_root: Path | BundleSnapshot,
+    apply: bool = False,
+    actor: str | None = None,
+    *,
+    limits: Limits = DEFAULT_LIMITS,
+) -> MigrationResult:
+    """Plan conservative edits, then apply the complete plan through guarded writes."""
+    if actor is not None and not is_conventional_actor(actor):
+        raise BundleError("actor must be a non-empty conventional identity", code="invalid_actor")
+    snapshot = load_bundle(bundle_root, limits=limits)
     result = MigrationResult()
-    targets = _index_targets(bundle_root)
+    documents = [doc for doc in snapshot.documents if not doc.is_reserved]
+    targets = _index_targets(documents)
+    paths = {doc.rel for doc in documents}
+    folded_paths: dict[str, set[str]] = {}
+    for path in paths:
+        folded_paths.setdefault(path.casefold(), set()).add(path)
+    originals: dict[str, str | None] = {}
+    diagnostics = 0
 
-    for path in sorted(bundle_root.rglob("*.md")):
-        if path.name in ("index.md", "log.md"):
+    for doc in documents:
+        reason = doc.fm_error
+        if not reason:
+            reason = _metadata_error(doc.frontmatter or {})
+        if reason:
+            result.skipped[doc.rel] = reason
+            diagnostics += 1
+            if diagnostics > limits.max_findings:
+                raise BundleError("migration diagnostic limit exceeded", code="resource_limit")
             continue
-        text = path.read_text(encoding="utf-8")
-        fm, body, err = split_frontmatter(text)
-        if err:
-            continue
-        fm = dict(fm or {})
-        original_fm, original_body = dict(fm), body
+        fm = dict(doc.frontmatter or {})
+        chunks: list[str] = []
+        cursor = 0
+        converted = 0
+        for match in iter_wikilinks(doc.body, limits=limits):
+            # An embed is content inclusion, not an ordinary concept relationship.
+            if match.start() and doc.body[match.start() - 1] == "!":
+                continue
+            target = match.group("target")
+            hits, fragment = _resolve_target(target, doc, paths, folded_paths, targets)
+            if len(hits) != 1:
+                diagnostics += 1
+                if diagnostics > limits.max_findings:
+                    raise BundleError("migration diagnostic limit exceeded", code="resource_limit")
+                if hits:
+                    candidates = set(result.ambiguous.get(target, ()))
+                    result.ambiguous[target] = sorted(candidates.union(hits))
+                else:
+                    result.unresolved.append((doc.rel, target))
+                continue
+            display = (match.group("alias") or target).strip()
+            href = "/" + quote(hits[0], safe="/")
+            if "#" in target:
+                href += "#" + quote(unquote(fragment), safe="")
+            chunks.extend((doc.body[cursor : match.start()], f"[{_escape_label(display)}]({href})"))
+            cursor = match.end()
+            converted += 1
+        if converted:
+            chunks.append(doc.body[cursor:])
+            body = "".join(chunks)
+        else:
+            body = doc.body
 
-        def repl(m: re.Match) -> str:
-            target = m.group("target")
-            hit = targets.get(target.strip().lower())
-            if hit is None:
-                result.unresolved.append((path.relative_to(bundle_root).as_posix(), target))
-                return m.group(0)  # never destroy a link we cannot resolve
-            result.links_converted += 1
-            display = (m.group("alias") or target).strip()
-            href = "/" + hit.relative_to(bundle_root).as_posix()
-            return f"[{display}]({href})"
-
-        body = WIKILINK.sub(repl, body)
-
-        # Recommended fields, derived only from what the document already carries.
-        if not fm.get("description"):
-            desc = _first_sentence(body)
-            if desc:
-                fm["description"] = desc
-                result.fields_added["description"] = result.fields_added.get("description", 0) + 1
-        if not fm.get("timestamp"):
-            stamp = fm.get("updated") or fm.get("created") or fm.get("date")
-            if stamp:
+        added: list[str] = []
+        # Key presence, not truthiness: even an empty extension scalar is the author's.
+        if "description" not in fm:
+            description = _first_sentence(body)
+            if description:
+                fm["description"] = description
+                added.append("description")
+        if "generated" not in fm:
+            stamp = next(
+                (
+                    fm[key]
+                    for key in ("updated", "created", "date")
+                    if isinstance(fm.get(key), (str, date, datetime)) and str(fm[key]).strip()
+                ),
+                None,
+            )
+            if actor is not None:
+                generated = {"by": actor}
+                if stamp is not None:
+                    generated["at"] = str(stamp)
+                fm["generated"] = generated
+                added.append("generated")
+            elif stamp is not None and "timestamp" not in fm:
                 fm["timestamp"] = str(stamp)
-                result.fields_added["timestamp"] = result.fields_added.get("timestamp", 0) + 1
+                added.append("timestamp")
 
-        if body != original_body or fm != original_fm:
-            result.files_changed += 1
-            if apply:
-                for k, v in list(fm.items()):
-                    if isinstance(v, str):
-                        fm[k] = " ".join(v.split())
+        if not added and not converted:
+            continue
+        if added:
+            newline = "\r\n" if doc.raw.startswith("---\r\n") else "\n"
+            try:
                 dumped = yaml.safe_dump(
-                    fm, sort_keys=False, allow_unicode=True,
-                    default_flow_style=False, width=10_000,
+                    fm,
+                    sort_keys=False,
+                    allow_unicode=True,
+                    default_flow_style=False,
+                    width=10_000,
+                    line_break=newline,
                 )
-                path.write_text("---\n" + dumped + "---" + body, encoding="utf-8")
+            except yaml.YAMLError as exc:
+                raise BundleError(
+                    "cannot serialize migration frontmatter", code="invalid_plan", path=doc.rel
+                ) from exc
+            content = "---" + newline + dumped + "---" + newline + body
+        else:
+            content = doc.raw[: len(doc.raw) - len(doc.body)] + body
+        planned_fm, planned_body, error = split_frontmatter(content, limits=limits)
+        if error or planned_fm is None or planned_body != body:
+            raise BundleError(
+                error or "migration plan did not preserve its document body",
+                code="invalid_plan",
+                path=doc.rel,
+            )
+        result.changes[doc.rel] = content
+        originals[doc.rel] = doc.raw
+        result.links_converted += converted
+        for key in added:
+            result.fields_added[key] = result.fields_added.get(key, 0) + 1
 
+    result.files_changed = len(result.changes)
+    if apply:
+        result.applied = apply_changes(snapshot.root, result.changes, originals, limits)
     return result
